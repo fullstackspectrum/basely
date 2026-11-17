@@ -21,6 +21,12 @@ inputs:
   fail-on:
     description: Comma-separated categories that fail the step, e.g. "better,critical". Empty never fails.
     default: ""
+  vex:
+    description: Path to your own OpenVEX document to apply to every image.
+    default: ""
+  os-only:
+    description: Set to "true" to count OS packages only, skipping pip, npm, Go, Maven and gems.
+    default: "false"
   title:
     description: Title for the Markdown and HTML reports.
     default: ""
@@ -70,6 +76,8 @@ runs:
         ONLY: ${{ inputs.only }}
         PLATFORM: ${{ inputs.platform }}
         FAIL_ON: ${{ inputs.fail-on }}
+        VEX: ${{ inputs.vex }}
+        OS_ONLY: ${{ inputs.os-only }}
         TITLE: ${{ inputs.title }}
         HTML: ${{ inputs.html }}
         MD: ${{ inputs.markdown }}
@@ -83,6 +91,8 @@ runs:
         if [ -n "$IMAGE" ]; then args+=(--image "$IMAGE"); else args+=("$DOCKERFILE"); fi
         [ -n "$ONLY" ] && args+=(--only "$ONLY")
         [ -n "$FAIL_ON" ] && args+=(--fail-on "$FAIL_ON")
+        [ -n "$VEX" ] && args+=(--vex "$VEX")
+        [ "$OS_ONLY" = "true" ] && args+=(--os-only)
         [ -n "$TITLE" ] && args+=(--title "$TITLE")
 
         set +e

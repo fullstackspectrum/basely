@@ -77,8 +77,8 @@ def test_hostile_values_are_escaped():
 
 def test_cli_end_to_end(tmp_path, monkeypatch, capsys):
     (tmp_path / "Dockerfile").write_text(DOCKERFILE)
-    monkeypatch.setattr(cli, "Registry", lambda cache: FakeRegistry(_images()))
-    monkeypatch.setattr(cli, "Client", lambda cache: FakeOSV())
+    monkeypatch.setattr(cli, "Registry", lambda cache, **kw: FakeRegistry(_images()))
+    monkeypatch.setattr(cli, "Client", lambda cache, **kw: FakeOSV())
     monkeypatch.chdir(tmp_path)
     with pytest.raises(SystemExit) as exit_:
         cli.main(["advise", "--no-cache", "--html", "r.html", "--json", "r.json", "--fail-on", "better"])
@@ -101,8 +101,8 @@ def test_cli_errors(tmp_path, monkeypatch, capsys):
 
 
 def test_cli_compare(monkeypatch, capsys):
-    monkeypatch.setattr(cli, "Registry", lambda cache: FakeRegistry(_images()))
-    monkeypatch.setattr(cli, "Client", lambda cache: FakeOSV())
+    monkeypatch.setattr(cli, "Registry", lambda cache, **kw: FakeRegistry(_images()))
+    monkeypatch.setattr(cli, "Client", lambda cache, **kw: FakeOSV())
     with pytest.raises(SystemExit) as exit_:
         cli.main(["compare", "python:3.12", "python:3.12-slim", "--no-cache", "-f", "json"])
     assert exit_.value.code == 0

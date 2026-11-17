@@ -7,7 +7,10 @@ First release.
 - `basely advise [DOCKERFILE]` compares each stage's base image with official `-slim`/`-alpine` variants, Docker Hardened Images, Chainguard images and the newest release of the same runtime, for Python, Node.js, Go, Java, Debian, Ubuntu and Alpine.
 - `basely advise --image REF` and `basely compare IMAGE...` work without a Dockerfile.
 - Reads manifests and package databases (dpkg, distroless `status.d`, apk) straight from the registry, using `docker login` credentials. No image is pulled.
-- Looks up every package in OSV under its distro's ecosystem, and classifies each advisory as fixable, unfixed or under investigation, with a CVSS 3.x severity. Distro-ignored, Chainguard false-positive and kernel advisories are left out.
+- Looks up every package in OSV under its distro's ecosystem, and classifies each advisory as fixable, unfixed or under investigation. Distro-ignored, Chainguard false-positive and kernel advisories are left out.
+- Language packages: Python, npm, Go (modules and the standard library, from binaries' build info), Maven JARs including nested ones, and RubyGems. Packages the distro installed are skipped so nothing is counted twice. `--os-only` turns this off.
+- VEX: applies the OpenVEX attestations images publish through the OCI referrers API (Docker Hardened Images do), and your own documents with `--vex`. `--no-vex` ignores images' VEX.
+- Severity from CVSS 3.x, then CVSS 4.0 (a port of FIRST's reference calculator, checked against GitHub's scores), then the distro's or GitHub's label.
 - Checks each candidate's fit with its stage: shell and package manager for `RUN` steps, glibc versus musl, runtime version, user, platforms and age.
 - Output: terminal, Markdown for PR comments, JSON with every advisory, and a self-contained offline HTML report.
 - `--fail-on fixable,critical,better,root` for CI, and a composite GitHub Action.

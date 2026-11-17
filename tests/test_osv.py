@@ -91,18 +91,52 @@ def test_chainguard_statuses():
     assert "CVE-2026-3" not in found and img.ignored == 1
 
 
-def test_ubuntu_priority_and_upstream_score():
+def test_severity_sources_in_order():
     pkg = Package("libc6", "2.39-0ubuntu8.4", "glibc", "2.39-0ubuntu8.4")
     img = _image("ubuntu", "24.04")
     img.distro = Distro("ubuntu", "24.04", lts=True)
+    eco = "Ubuntu:24.04:LTS"
     records = [
-        record("UBUNTU-CVE-2016-1", "Ubuntu:24.04:LTS", "glibc", severity=[{"type": "Ubuntu", "score": "negligible"}]),
-        record("UBUNTU-CVE-2025-5", "Ubuntu:24.04:LTS", "glibc", severity=V4 + [{"type": "Ubuntu", "score": "medium"}]),
-        record("UBUNTU-CVE-2025-6", "Ubuntu:24.04:LTS", "glibc", severity=V4),
+        record("UBUNTU-CVE-2016-1", eco, "glibc", severity=[{"type": "Ubuntu", "score": "negligible"}]),
+        # A 4.0 vector is scored now: this one is 9.3.
+        record("UBUNTU-CVE-2025-4", eco, "glibc", severity=V4),
+        # No vector at all: Ubuntu's own priority.
+        record("UBUNTU-CVE-2025-5", eco, "glibc", severity=[{"type": "Ubuntu", "score": "medium"}]),
+        # No vector and no priority: the upstream CVE record's score.
+        record("UBUNTU-CVE-2025-6", eco, "glibc"),
     ]
-    found = _run(img, [(pkg, ["UBUNTU-CVE-2016-1", "UBUNTU-CVE-2025-5", "UBUNTU-CVE-2025-6"])], records,
-                 upstream={"CVE-2025-6": {"id": "CVE-2025-6", "severity": HIGH}})
+    ids = [r["id"] for r in records]
+    found = _run(img, [(pkg, ids)], records, upstream={"CVE-2025-6": {"id": "CVE-2025-6", "severity": HIGH}})
     assert "CVE-2016-1" not in found
-    # No 3.x vector: Ubuntu's own priority, then the upstream CVE's score.
-    assert found["CVE-2025-5"].severity == "medium"
+    assert found["CVE-2025-4"].severity == "critical" and found["CVE-2025-4"].score == 9.3
+    assert found["CVE-2025-5"].severity == "medium" and found["CVE-2025-5"].score is None
     assert found["CVE-2025-6"].severity == "high" and found["CVE-2025-6"].score == 7.5
+
+
+def test_language_advisories():
+    img = _image("debian", "13")
+    pip = Package("pip", "23.0", ecosystem="PyPI", path="usr/local/lib/python3.12/site-packages/pip-23.0.dist-info/METADATA")
+    pyyaml = Package("PyYAML", "5.3", ecosystem="PyPI")
+    ghsa = record("GHSA-aaaa-bbbb-cccc", "PyPI", "pip", fixed="23.3")
+    ghsa["aliases"] = ["PYSEC-2023-1"]
+    ghsa["database_specific"] = {"severity": "MODERATE"}
+    # The PYSEC twin of the same issue, with no CVE: it must not count twice.
+    pysec = record("PYSEC-2023-1", "PyPI", "pip", fixed="23.3")
+    pysec["aliases"] = ["GHSA-aaaa-bbbb-cccc"]
+    # PyPI names compare after normalisation.
+    yaml = record("GHSA-yaml-0000-0000", "PyPI", "pyyaml", fixed="5.4", severity=CRIT)
+    found = _run(img, [(pip, ["GHSA-aaaa-bbbb-cccc", "PYSEC-2023-1"]), (pyyaml, ["GHSA-yaml-0000-0000"])],
+                 [ghsa, pysec, yaml])
+    assert set(found) == {"GHSA-aaaa-bbbb-cccc", "GHSA-yaml-0000-0000"}
+    assert found["GHSA-aaaa-bbbb-cccc"].severity == "medium"
+    assert found["GHSA-aaaa-bbbb-cccc"].status == "fixable" and found["GHSA-aaaa-bbbb-cccc"].ecosystem == "PyPI"
+    assert found["GHSA-yaml-0000-0000"].fixed_version == "5.4"
+    assert img.count(language=True) == 2 and img.count(language=False) == 0
+
+
+def test_kernel_filter_is_only_for_distro_packages():
+    # An npm package that happens to be called "linux" isn't the kernel.
+    img = _image()
+    npm_linux = Package("linux", "0.1.0", ecosystem="npm")
+    found = _run(img, [(npm_linux, ["GHSA-x"])], [record("GHSA-x", "npm", "linux", severity=HIGH)])
+    assert "GHSA-x" in found

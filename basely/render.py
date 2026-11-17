@@ -98,18 +98,22 @@ def _candidate_json(sa: StageAdvice, c: Candidate) -> dict:
             "libc": img.libc or None,
             "distro": {"id": img.distro.id, "versionId": img.distro.version_id, "ecosystem": img.distro.ecosystem},
             "runtime": runtime_label(sa, img),
-            "packages": len(img.packages),
+            "packages": len([p for p in img.packages if not p.ecosystem]),
+            "languagePackages": len(img.language_packages),
             "scanned": img.scanned,
             "risk": img.risk if img.scanned else None,
             "vulnerabilities": {
                 **{s: img.count(s) for s in SEVERITIES},
                 **{s: img.count(status=s) for s in ("fixable", "unfixed", "investigating")},
                 "total": len(img.vulns),
+                "inLanguagePackages": img.count(language=True),
                 "ignored": img.ignored,
+                "vexSuppressed": img.vex_suppressed,
             },
+            "vexSources": img.vex_sources,
             "advisories": [
-                {"id": v.id, "advisory": v.advisory, "package": v.package, "version": v.version,
-                 "severity": v.severity, "score": v.score, "status": v.status,
+                {"id": v.id, "advisory": v.advisory, "ecosystem": v.ecosystem, "package": v.package,
+                 "version": v.version, "severity": v.severity, "score": v.score, "status": v.status,
                  "fixedVersion": v.fixed_version or None}
                 for v in img.vulns
             ],
@@ -305,5 +309,5 @@ def to_markdown(advice: Advice, title: str = "") -> str:
                     out.append(f"  - {_LEVEL_MARK[i.level]} {_md(i.text)}")
 
     out += ["", f"<sub>[Basely](https://github.com/fullstackspectrum/basely) {__version__}. "
-                "Counts are distro advisories for OS packages; packages your app installs aren't included.</sub>", ""]
+                "Counts cover the image's OS and language packages, not what your build adds.</sub>", ""]
     return "\n".join(out)

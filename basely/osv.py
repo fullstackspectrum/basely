@@ -17,6 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 from . import __version__, cvss
 from .cache import Cache
 from .errors import BaselyError
+from .lang import canonical_pypi
 from .model import SEVERITIES, Image, Package, Vuln
 
 API = "https://api.osv.dev/v1"
@@ -84,21 +85,29 @@ class Client:
         """Fill in vulns for every image, sharing advisory lookups between them."""
         hits: dict[int, list[tuple[Package, list[str]]]] = {}
         for n, image in enumerate(images):
-            eco = image.distro.ecosystem
-            if not eco or not image.packages:
-                if image.packages and not eco:
-                    image.warnings.append(f"OSV has no advisories for {image.distro.label}, so vulnerabilities weren't checked")
-                continue
+            distro_eco = image.distro.ecosystem
+            os_packages = [p for p in image.packages if not p.ecosystem]
+            if os_packages and not distro_eco:
+                image.warnings.append(f"OSV has no advisories for {image.distro.label}, "
+                                      "so its OS packages weren't checked")
             # Several binaries share a source package; ask about each source once.
-            sources = {(p.osv_name, p.osv_version): p for p in image.packages}
-            unique = list(sources.values())
-            hits[n] = list(zip(unique, self.affected(eco, unique)))
+            by_eco: dict[str, dict[tuple[str, str], Package]] = {}
+            for p in image.packages:
+                eco = p.ecosystem or distro_eco
+                if eco:
+                    by_eco.setdefault(eco, {}).setdefault((p.osv_name, p.osv_version), p)
+            if not by_eco:
+                continue
+            hits[n] = []
+            for eco, unique in by_eco.items():
+                pkgs = list(unique.values())
+                hits[n] += list(zip(pkgs, self.affected(eco, pkgs)))
 
         records = self.records({i for pairs in hits.values() for _, ids in pairs for i in ids})
 
-        # Records with only a CVSS 4 vector borrow the upstream CVE's 3.x score.
+        # Records with no CVSS vector at all borrow the upstream CVE's score.
         upstream_needed = {_cve(r) for r in records.values() if r and _score(r)[0] is None and _cve(r)}
-        upstream = self.records({c for c in upstream_needed if c})
+        upstream = self.records({c for c in upstream_needed if c and c not in records})
 
         for n, pairs in hits.items():
             image = images[n]
@@ -116,41 +125,65 @@ def _cve(record: dict) -> str:
     return ""
 
 
+def _key(record: dict, fallback: str) -> str:
+    """One name per issue. The CVE when there is one; otherwise the smallest of
+    the record's own ID and its aliases, so a GHSA and the PYSEC record that
+    aliases it land on the same key."""
+    cve = _cve(record)
+    if cve:
+        return cve
+    names = [record.get("id") or fallback] + list(record.get("aliases", []))
+    return min(n for n in names if n)
+
+
+# GitHub's advisory severities, used when a record has no CVSS vector.
+_GHSA_SEVERITY = {"critical": "critical", "high": "high", "moderate": "medium", "medium": "medium", "low": "low"}
+
+
 def _score(record: dict) -> tuple[float | None, str]:
-    """CVSS 3.x score if there is one, plus Ubuntu's own priority if given."""
-    score = None
-    priority = ""
+    """A CVSS score (3.x preferred, then 4.0) and a fallback severity label:
+    Ubuntu's priority or GitHub's severity."""
+    by_type: dict[str, float | None] = {}
+    label = ""
     for s in record.get("severity", []):
-        if s.get("type") == "CVSS_V3" and score is None:
-            score = cvss.base_score(s.get("score", ""))
-        elif s.get("type") == "Ubuntu":
-            priority = s.get("score", "").lower()
-    return score, priority
+        kind = s.get("type", "")
+        if kind in ("CVSS_V3", "CVSS_V4") and by_type.get(kind) is None:
+            by_type[kind] = cvss.score(s.get("score", ""))
+        elif kind == "Ubuntu":
+            label = s.get("score", "").lower()
+    ghsa = str((record.get("database_specific") or {}).get("severity", "")).lower()
+    if not label and ghsa in _GHSA_SEVERITY:
+        label = _GHSA_SEVERITY[ghsa]
+    score = by_type.get("CVSS_V3")
+    if score is None:
+        score = by_type.get("CVSS_V4")
+    return score, label
 
 
 def _affected_entry(record: dict, ecosystem: str, name: str) -> dict:
+    same = (lambda a, b: canonical_pypi(a) == canonical_pypi(b)) if ecosystem == "PyPI" else (lambda a, b: a == b)
     for a in record.get("affected", []):
         pkg = a.get("package", {})
-        if pkg.get("ecosystem") == ecosystem and pkg.get("name") == name:
+        if pkg.get("ecosystem") == ecosystem and same(pkg.get("name", ""), name):
             return a
     return {}
 
 
 def classify(image: Image, pairs: list[tuple[Package, list[str]]], records: dict[str, dict],
              upstream: dict[str, dict]) -> None:
-    eco = image.distro.ecosystem
     found: dict[str, Vuln] = {}
     ignored: set[str] = set()
 
     for pkg, ids in pairs:
-        if _KERNEL.fullmatch(pkg.osv_name):
-            ignored.update(_cve(records.get(vid) or {}) or vid for vid in ids)
+        eco = pkg.ecosystem or image.distro.ecosystem
+        if not pkg.ecosystem and _KERNEL.fullmatch(pkg.osv_name):
+            ignored.update(_key(records.get(vid) or {}, vid) for vid in ids)
             continue
         for vid in ids:
             record = records.get(vid) or {}
             entry = _affected_entry(record, eco, pkg.osv_name)
             spec = entry.get("ecosystem_specific", {}) or {}
-            key = _cve(record) or vid
+            key = _key(record, vid)
 
             status = "unfixed"
             fixed = [e["fixed"] for r in entry.get("ranges", []) for e in r.get("events", []) if "fixed" in e]
@@ -168,19 +201,20 @@ def classify(image: Image, pairs: list[tuple[Package, list[str]]], records: dict
             if not fixed and wolfi & _WOLFI_INVESTIGATING:
                 status = "investigating"
 
-            score, priority = _score(record)
-            if priority in _IGNORED_PRIORITY:
+            score, label = _score(record)
+            if label in _IGNORED_PRIORITY:
                 ignored.add(key)
                 continue
             if score is None and key in upstream:
                 score, _ = _score(upstream[key] or {})
             sev = cvss.severity(score)
-            if sev == "unknown" and priority in SEVERITIES:
-                sev = priority
+            if sev == "unknown" and label in SEVERITIES:
+                sev = label
 
             vuln = Vuln(id=key, advisory=vid, package=pkg.osv_name, version=pkg.osv_version, severity=sev,
                         score=score, status=status, fixed_version=fixed[-1] if fixed else "",
-                        summary=(record.get("summary") or record.get("details") or "").strip().split("\n")[0][:200])
+                        summary=(record.get("summary") or record.get("details") or "").strip().split("\n")[0][:200],
+                        ecosystem=eco)
             # One CVE can hit several source packages; keep the worst view of it.
             prior = found.get(key)
             if prior is None or _rank(vuln) < _rank(prior):

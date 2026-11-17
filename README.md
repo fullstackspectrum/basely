@@ -13,7 +13,7 @@
 
 Point Basely at a Dockerfile and it compares each `FROM` with the alternatives: official `-slim` and `-alpine` variants, [Docker Hardened Images](https://dhi.io), [Chainguard](https://images.chainguard.dev) images, and newer releases of the same runtime. For every candidate it reports:
 
-- **Vulnerabilities**, by severity, from [OSV](https://osv.dev) and each distro's own advisory feed, so backported fixes count as fixed.
+- **Vulnerabilities**, by severity, from [OSV](https://osv.dev): the distro's own advisory feed for OS packages, so backported fixes count as fixed, plus the language packages the image ships (pip, npm, Go modules and the Go standard library, Maven JARs, gems). Where the image publishes VEX, advisories its vendor rules out are left out.
 - **Size**, as the compressed download.
 - **Fit with your Dockerfile.** A build stage with `RUN apt-get` needs a shell and apt, so a distroless image or an Alpine one would break it. Basely checks that, along with glibc versus musl, runtime version, user, platforms and image age.
 
@@ -70,6 +70,8 @@ Include your own golden images, or narrow the sources:
 basely advise --with registry.example.com/base/python:3.12
 basely advise --only official,hardened
 basely advise --platform linux/arm64
+basely advise --vex our-exceptions.openvex.json    # apply your own VEX
+basely advise --os-only                            # skip language packages
 ```
 
 ## How it decides
@@ -87,9 +89,18 @@ basely advise --platform linux/arm64
 
 **Ranking.** Candidates are ranked by severity-weighted advisories (critical 10, high 5, medium 2, low and unscored 1), then size. The recommendation is the best drop-in, or failing that the best with minor changes, and only if it beats the current image. A candidate that needs more work is offered as *worth the changes* when it at least halves the risk.
 
-**What's counted.** OS packages from the image's package database (dpkg, including distroless's `status.d`, and apk), looked up in OSV under the distro's ecosystem: Debian, Ubuntu, Alpine, Wolfi and Chainguard. Basely leaves out advisories the distro marks as unimportant or negligible, Chainguard's false positives, and kernel advisories, which can't apply because a container runs on the host's kernel. Advisories with only a CVSS 4.0 vector borrow the upstream CVE's 3.x score, or Ubuntu's priority, and are counted as unscored otherwise.
+**What's counted.**
 
-**Not counted (yet).** Language packages inside the image, such as pip or npm installs, and the VEX statements Docker and Chainguard publish to mark advisories that don't affect their images. Both are planned. Until then, hardened images' counts can be higher than their vendors' own.
+- **OS packages** from the image's package database (dpkg, including distroless's `status.d`, and apk), looked up under the distro's ecosystem: Debian, Ubuntu, Alpine, Wolfi and Chainguard.
+- **Language packages**: Python `site-packages` (dist-info and egg-info), `node_modules`, the build info embedded in Go binaries (modules and the Go standard library), `pom.properties` in JARs (nested Spring Boot and WAR JARs too) and RubyGems specifications. Anything the distro's package manager installed is skipped, because its advisories already cover it. `--os-only` turns this off.
+
+**What's left out.**
+
+- Advisories the distro marks as unimportant or negligible, and Chainguard's false positives.
+- Kernel advisories: a container runs on the host's kernel, whatever headers the image carries.
+- Advisories ruled out by **VEX**. Basely fetches OpenVEX attestations attached to each image through the OCI referrers API, as Docker Hardened Images publish them, and applies them: `not_affected` and `fixed` take an advisory out of the counts, `under_investigation` marks it. Add your own OpenVEX documents with `--vex FILE`, or ignore images' VEX with `--no-vex`.
+
+**Severity** comes from the CVSS 3.x vector when there is one, then CVSS 4.0 (scored with a port of FIRST's reference calculator), then the distro's or GitHub's own label, then the upstream CVE record.
 
 ## CI
 

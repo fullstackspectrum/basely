@@ -5,6 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 SEVERITIES = ("critical", "high", "medium", "low", "unknown")
+LANGUAGE_ECOSYSTEMS = ("PyPI", "npm", "Go", "Maven", "RubyGems")
+
+
+def is_language(ecosystem: str) -> bool:
+    return ecosystem in LANGUAGE_ECOSYSTEMS
 
 
 @dataclass(frozen=True)
@@ -15,6 +20,10 @@ class Package:
     # origin. Falls back to the binary name and version.
     source: str = ""
     source_version: str = ""
+    # Empty for the distro's own packages; PyPI, npm, Go, Maven or RubyGems
+    # for language packages, which also record where they were found.
+    ecosystem: str = ""
+    path: str = ""
 
     @property
     def osv_name(self) -> str:
@@ -69,6 +78,7 @@ class Vuln:
     status: str = "unfixed"
     fixed_version: str = ""
     summary: str = ""
+    ecosystem: str = ""   # where the advisory came from: Debian:13, PyPI, Go
 
 
 @dataclass
@@ -92,15 +102,23 @@ class Image:
     warnings: list[str] = field(default_factory=list)
     vulns: list[Vuln] = field(default_factory=list)
     ignored: int = 0           # advisories the distro marks as not worth fixing
+    vex_suppressed: int = 0    # advisories a VEX statement marks not affected or fixed
+    vex_sources: list[str] = field(default_factory=list)
     scanned: bool = False      # vulnerabilities were looked up
+    manifest_digest: str = ""  # the platform manifest, which attestations attach to
 
     @property
     def runs_as_root(self) -> bool:
         return self.user in ("", "0", "root") or self.user.startswith(("0:", "root:"))
 
-    def count(self, severity: str | None = None, status: str | None = None) -> int:
+    def count(self, severity: str | None = None, status: str | None = None, language: bool | None = None) -> int:
         return sum(1 for v in self.vulns
-                   if (severity is None or v.severity == severity) and (status is None or v.status == status))
+                   if (severity is None or v.severity == severity) and (status is None or v.status == status)
+                   and (language is None or is_language(v.ecosystem) == language))
+
+    @property
+    def language_packages(self) -> list[Package]:
+        return [p for p in self.packages if p.ecosystem]
 
     @property
     def risk(self) -> int:

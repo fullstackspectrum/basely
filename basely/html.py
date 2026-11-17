@@ -86,7 +86,8 @@ def _vuln_list(c: Candidate) -> str:
     for v in img.vulns[:_VULNS_SHOWN]:
         fix = f"fixed in {v.fixed_version}" if v.fixed_version else v.status
         rows.append(f'<div class="{_kind(v.severity)}"><span class="sv">{escape(v.severity)}</span>'
-                    f"<span>{escape(v.id)}</span><span>{escape(v.package)} {escape(v.version)} · {escape(fix)}</span></div>")
+                    f"<span>{escape(v.id)}</span><span>{escape(v.package)} {escape(v.version)} · {escape(fix)}"
+                    f"{' · ' + escape(v.ecosystem) if v.ecosystem else ''}</span></div>")
     if len(img.vulns) > _VULNS_SHOWN:
         rows.append(f'<div class="more-n">… and {len(img.vulns) - _VULNS_SHOWN} more in --json</div>')
     return f'<div class="vulns">{"".join(rows)}</div>'

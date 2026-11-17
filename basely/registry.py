@@ -100,9 +100,10 @@ def credentials(host: str) -> tuple[str, str] | None:
 # ── Client ───────────────────────────────────────────────────────────
 
 class Registry:
-    def __init__(self, cache: Cache | None = None, workers: int = 6) -> None:
+    def __init__(self, cache: Cache | None = None, workers: int = 6, languages: bool = True) -> None:
         self.cache = cache or Cache(enabled=False)
         self.workers = workers
+        self.languages = languages
         self._tokens: dict[tuple[str, str], str] = {}
         self._used_login: set[tuple[str, str]] = set()
         self._lock = threading.Lock()
@@ -210,6 +211,22 @@ class Registry:
             path = m.group(1) if m else None
         return out
 
+    def referrers(self, ref: ImageRef, digest: str) -> list[dict]:
+        """Artifacts attached to a manifest through the OCI referrers API:
+        signatures, SBOMs, VEX. Registries without the API return none."""
+        try:
+            with self._request(ref, f"referrers/{digest}", _INDEX_TYPES[0]) as resp:
+                return json.load(resp).get("manifests") or []
+        except (BaselyError, ValueError):
+            return []
+
+    def blob(self, ref: ImageRef, digest: str, limit: int = 16_000_000) -> bytes:
+        with self._request(ref, f"blobs/{digest}") as resp:
+            data = resp.read(limit + 1)
+        if len(data) > limit:
+            raise BaselyError(f"{ref}: blob {digest[:19]} is larger than {limit} bytes")
+        return data
+
     # ── Inspect ──
 
     def inspect(self, ref: ImageRef, platform: str = "linux/amd64") -> Image:
@@ -228,7 +245,7 @@ class Registry:
             manifest_digest = digest
 
         # Bump the prefix when what's read from the layers changes.
-        cache_key = f"v1:{manifest_digest}"
+        cache_key = f"v2:{'lang' if self.languages else 'os'}:{manifest_digest}"
         cached = self.cache.get("image", cache_key) if manifest_digest else None
         if cached:
             image = _image_from_cache(cached)
@@ -239,6 +256,7 @@ class Registry:
 
         image.ref = str(ref)
         image.digest = digest or manifest_digest
+        image.manifest_digest = manifest_digest
         image.platform = platform
         image.platforms = platforms or [platform]
         image.needs_login = self.used_login(ref) and ref.host != DOCKER_HUB
@@ -264,10 +282,10 @@ class Registry:
                             warnings.append("some layers are zstd-compressed and need Python 3.14 to read; "
                                             "package results may be incomplete")
                         return None
-                    return packages.scan_layer(zstd.ZstdFile(resp), "r|")
+                    return packages.scan_layer(zstd.ZstdFile(resp), "r|", self.languages)
                 mode = "r|gz" if "gzip" in media else "r|*"
                 try:
-                    return packages.scan_layer(resp, mode)
+                    return packages.scan_layer(resp, mode, self.languages)
                 except Exception as exc:  # tarfile raises a handful of types
                     raise BaselyError(f"{ref}: can't read layer {layer['digest'][:19]} ({exc})") from None
 
@@ -319,7 +337,7 @@ def _image_to_cache(image: Image) -> dict:
         "env": image.env, "shell": image.shell, "package_manager": image.package_manager,
         "libc": image.libc, "warnings": image.warnings,
         "distro": [image.distro.id, image.distro.version_id, image.distro.name, image.distro.lts],
-        "packages": [[p.name, p.version, p.source, p.source_version] for p in image.packages],
+        "packages": [[p.name, p.version, p.source, p.source_version, p.ecosystem, p.path] for p in image.packages],
     }
 
 

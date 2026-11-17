@@ -391,8 +391,8 @@
   <section aria-labelledby="methodTitle">
     <h2 class="section-title" id="methodTitle">How Basely compares</h2>
     <div class="method">
-      <p>Each image's package database is read straight from its layers over the registry API, for <code>{{PLATFORM}}</code>, and every package is looked up in <a href="https://osv.dev" target="_blank" rel="noopener">OSV</a> against its distro's own advisory feed, so backported fixes count as fixed. Advisories the distro marks as unimportant or negligible, Chainguard false positives and kernel advisories (a container runs on the host's kernel) are left out.</p>
-      <p>Images are ranked by severity-weighted advisories, then size. A candidate that would break a stage, such as one with no shell under a stage with <code>RUN</code> steps, is never the recommendation; it can be offered as worth the changes when it at least halves the risk. Counts cover OS packages only, not what your build installs on top.</p>
+      <p>Each image's package database is read straight from its layers over the registry API, for <code>{{PLATFORM}}</code>, and every package is looked up in <a href="https://osv.dev" target="_blank" rel="noopener">OSV</a>: OS packages against the distro's own advisory feed, so backported fixes count as fixed, and the language packages the image ships (pip, npm, Go, Maven, gems) against theirs. Advisories the distro marks as unimportant or negligible, Chainguard false positives, kernel advisories (a container runs on the host's kernel) and anything an image's VEX rules out are left out.</p>
+      <p>Images are ranked by severity-weighted advisories, then size. A candidate that would break a stage, such as one with no shell under a stage with <code>RUN</code> steps, is never the recommendation; it can be offered as worth the changes when it at least halves the risk. Counts cover what the base image ships, not what your build installs on top.</p>
     </div>
   </section>
 </main>

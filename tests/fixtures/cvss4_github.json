@@ -1,0 +1,205 @@
+{
+ "source": "GitHub Advisory Database cvss_severities.cvss_v4 (vector and GitHub's computed score), fetched 2026-11-17",
+ "vectors": [
+  {
+   "advisory": "GHSA-28hh-pr2h-2w89",
+   "vector": "CVSS:4.0/AV:L/AC:H/AT:N/PR:L/UI:N/VC:L/VI:L/VA:L/SC:N/SI:N/SA:N",
+   "score": 2.0
+  },
+  {
+   "advisory": "GHSA-2hw9-mc66-jc2q",
+   "vector": "CVSS:4.0/AV:N/AC:H/AT:P/PR:H/UI:P/VC:N/VI:L/VA:L/SC:N/SI:N/SA:N",
+   "score": 2.0
+  },
+  {
+   "advisory": "GHSA-6wcv-rj3c-mhv3",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:P/VC:L/VI:N/VA:N/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+   "score": 2.3
+  },
+  {
+   "advisory": "GHSA-8whx-365g-h9vv",
+   "vector": "CVSS:4.0/AV:N/AC:H/AT:N/PR:L/UI:N/VC:N/VI:N/VA:N/SC:L/SI:L/SA:N",
+   "score": 2.3
+  },
+  {
+   "advisory": "GHSA-p623-mxf7-qxjm",
+   "vector": "CVSS:4.0/AV:A/AC:L/AT:N/PR:L/UI:P/VC:L/VI:L/VA:L/SC:L/SI:L/SA:N",
+   "score": 2.4
+  },
+  {
+   "advisory": "GHSA-8qx7-j2v2-x6q5",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N/E:P",
+   "score": 2.9
+  },
+  {
+   "advisory": "GHSA-w2j9-qh3j-4h63",
+   "vector": "CVSS:4.0/AV:L/AC:L/AT:N/PR:L/UI:N/VC:L/VI:N/VA:N/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+   "score": 4.8
+  },
+  {
+   "advisory": "GHSA-x397-5hrv-j9m9",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:H/UI:P/VC:N/VI:N/VA:N/SC:L/SI:L/SA:N",
+   "score": 4.8
+  },
+  {
+   "advisory": "GHSA-6f4g-xm8v-pgv6",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:P/VC:N/VI:L/VA:N/SC:N/SI:L/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+   "score": 5.3
+  },
+  {
+   "advisory": "GHSA-9vw2-f4vp-x7gf",
+   "vector": "CVSS:4.0/AV:L/AC:L/AT:P/PR:L/UI:P/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+   "score": 5.4
+  },
+  {
+   "advisory": "GHSA-5wjr-9356-4wc8",
+   "vector": "CVSS:4.0/AV:L/AC:H/AT:P/PR:L/UI:N/VC:N/VI:L/VA:H/SC:N/SI:N/SA:N",
+   "score": 5.8
+  },
+  {
+   "advisory": "GHSA-m3c3-78fh-w3w7",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:L/UI:N/VC:N/VI:L/VA:L/SC:H/SI:H/SA:H",
+   "score": 5.8
+  },
+  {
+   "advisory": "GHSA-9pwq-gcrx-wghh",
+   "vector": "CVSS:4.0/AV:L/AC:H/AT:P/PR:N/UI:N/VC:H/VI:L/VA:N/SC:N/SI:N/SA:N",
+   "score": 5.9
+  },
+  {
+   "advisory": "GHSA-m6wq-39m7-9xpp",
+   "vector": "CVSS:4.0/AV:L/AC:L/AT:P/PR:L/UI:P/VC:L/VI:H/VA:L/SC:L/SI:H/SA:H",
+   "score": 6.0
+  },
+  {
+   "advisory": "GHSA-7cgw-qmxx-7fc2",
+   "vector": "CVSS:4.0/AV:N/AC:H/AT:N/PR:N/UI:N/VC:L/VI:L/VA:N/SC:N/SI:N/SA:N/E:X/CR:X/IR:X/AR:X/MAV:X/MAC:X/MAT:X/MPR:X/MUI:X/MVC:X/MVI:X/MVA:X/MSC:X/MSI:X/MSA:X/S:X/AU:X/R:X/V:X/RE:X/U:X",
+   "score": 6.3
+  },
+  {
+   "advisory": "GHSA-59f9-gqg8-mqpj",
+   "vector": "CVSS:4.0/AV:N/AC:H/AT:N/PR:N/UI:N/VC:N/VI:L/VA:L/SC:N/SI:N/SA:N",
+   "score": 6.3
+  },
+  {
+   "advisory": "GHSA-mwm8-39rw-8826",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:L/VI:L/VA:L/SC:N/SI:N/SA:N",
+   "score": 6.3
+  },
+  {
+   "advisory": "GHSA-jv6m-48w5-5rpr",
+   "vector": "CVSS:4.0/AV:L/AC:L/AT:N/PR:L/UI:N/VC:H/VI:N/VA:N/SC:N/SI:N/SA:N",
+   "score": 6.8
+  },
+  {
+   "advisory": "GHSA-f9m8-cv68-674w",
+   "vector": "CVSS:4.0/AV:N/AC:H/AT:P/PR:N/UI:N/VC:N/VI:N/VA:N/SC:N/SI:H/SA:N",
+   "score": 6.9
+  },
+  {
+   "advisory": "GHSA-m27g-v28p-f9fx",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:L/VI:L/VA:N/SC:N/SI:L/SA:N",
+   "score": 6.9
+  },
+  {
+   "advisory": "GHSA-vjf8-9fx6-mv6x",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N",
+   "score": 6.9
+  },
+  {
+   "advisory": "GHSA-473q-m89c-ghf8",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:L/VI:N/VA:N/SC:N/SI:N/SA:N",
+   "score": 6.9
+  },
+  {
+   "advisory": "GHSA-f42p-wjw5-97qh",
+   "vector": "CVSS:4.0/AV:L/AC:L/AT:P/PR:N/UI:A/VC:H/VI:N/VA:N/SC:H/SI:H/SA:H",
+   "score": 7.0
+  },
+  {
+   "advisory": "GHSA-jq29-c7v8-rg55",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:L/UI:N/VC:H/VI:N/VA:N/SC:N/SI:N/SA:N",
+   "score": 7.1
+  },
+  {
+   "advisory": "GHSA-mcr4-qmvw-px4g",
+   "vector": "CVSS:4.0/AV:L/AC:H/AT:P/PR:L/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+   "score": 7.3
+  },
+  {
+   "advisory": "GHSA-6j52-38f8-qhxr",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:L/UI:N/VC:H/VI:H/VA:N/SC:N/SI:N/SA:N",
+   "score": 7.6
+  },
+  {
+   "advisory": "GHSA-rx7m-wxwq-vxr9",
+   "vector": "CVSS:4.0/AV:N/AC:H/AT:N/PR:N/UI:N/VC:N/VI:H/VA:N/SC:N/SI:N/SA:N",
+   "score": 8.2
+  },
+  {
+   "advisory": "GHSA-xm28-xvqc-gxxg",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:N/VA:N/SC:N/SI:N/SA:N",
+   "score": 8.2
+  },
+  {
+   "advisory": "GHSA-vp5q-ff62-jwqv",
+   "vector": "CVSS:4.0/AV:L/AC:L/AT:N/PR:L/UI:N/VC:N/VI:H/VA:N/SC:H/SI:H/SA:N",
+   "score": 8.3
+  },
+  {
+   "advisory": "GHSA-xcvg-w56q-r89m",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:L/VA:H/SC:N/SI:N/SA:N",
+   "score": 8.4
+  },
+  {
+   "advisory": "GHSA-xhv5-8fpq-g7hf",
+   "vector": "CVSS:4.0/AV:L/AC:L/AT:N/PR:L/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+   "score": 8.5
+  },
+  {
+   "advisory": "GHSA-5w5g-j6hw-6p8f",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:H/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+   "score": 8.6
+  },
+  {
+   "advisory": "GHSA-w7wx-5q49-r59w",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:N/VA:N/SC:N/SI:N/SA:N",
+   "score": 8.7
+  },
+  {
+   "advisory": "GHSA-47m2-wp7j-p9vc",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:H/VA:N/SC:N/SI:N/SA:N",
+   "score": 8.7
+  },
+  {
+   "advisory": "GHSA-2x63-gw47-w4mm",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:H",
+   "score": 8.9
+  },
+  {
+   "advisory": "GHSA-6v2g-fpxh-pmmh",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:N/VA:N/SC:H/SI:N/SA:N",
+   "score": 9.2
+  },
+  {
+   "advisory": "GHSA-f9x3-7vq9-cph6",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+   "score": 9.2
+  },
+  {
+   "advisory": "GHSA-f8wv-xp27-6gq7",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+   "score": 9.3
+  },
+  {
+   "advisory": "GHSA-jmqq-x5g9-9p2w",
+   "vector": "CVSS:4.0/AV:N/AC:H/AT:P/PR:N/UI:N/VC:H/VI:H/VA:N/SC:H/SI:H/SA:N",
+   "score": 9.4
+  },
+  {
+   "advisory": "GHSA-m665-v7pm-7grj",
+   "vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:L/UI:N/VC:H/VI:H/VA:H/SC:H/SI:H/SA:L",
+   "score": 9.4
+  }
+ ]
+}

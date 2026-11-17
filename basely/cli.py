@@ -9,7 +9,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from . import __version__, dockerfile
+from . import __version__, dockerfile, vex
 from .advise import FAIL_ON_CHOICES, Advice, Advisor
 from .cache import Cache
 from .dockerfile import Stage
@@ -189,6 +189,12 @@ def _common(p: argparse.ArgumentParser, gate: bool) -> None:
     scan = p.add_argument_group("scanning")
     scan.add_argument("-p", "--platform", type=_platform, default="linux/amd64", metavar="P",
                       help="platform to compare (default: linux/amd64)")
+    scan.add_argument("--os-only", action="store_true",
+                      help="skip language packages (pip, npm, Go, Maven, gems); count OS packages only")
+    scan.add_argument("--vex", metavar="FILE", action="append", default=[],
+                      help="apply your own OpenVEX document to every image (repeatable)")
+    scan.add_argument("--no-vex", action="store_true",
+                      help="ignore the VEX attestations images publish")
     scan.add_argument("--no-cache", action="store_true",
                       help="don't read or write the cache in ~/.cache/basely")
 
@@ -316,7 +322,10 @@ def run(args: argparse.Namespace) -> int:
         include = args.only
         extra = [str(parse(r)) for r in args.extra]
 
-    advisor = Advisor(Registry(cache), Client(cache), platform=args.platform, include=include, progress=progress)
+    user_vex = [st for path in args.vex for st in vex.load_file(path)]
+    registry = Registry(cache, languages=not args.os_only)
+    advisor = Advisor(registry, Client(cache), platform=args.platform, include=include, progress=progress,
+                      vendor_vex=not args.no_vex, user_vex=user_vex)
     advice: Advice = advisor.advise(stages, extra)
     advice.source = source
     if args.title == "" and args.command == "compare":

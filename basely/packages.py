@@ -12,6 +12,7 @@ import tarfile
 from dataclasses import dataclass, field
 from typing import IO
 
+from . import lang
 from .model import Distro, Package
 
 DPKG_STATUS = "var/lib/dpkg/status"
@@ -40,9 +41,10 @@ class LayerScan:
     paths: set[str] = field(default_factory=set)
     removed: set[str] = field(default_factory=set)
     opaque: set[str] = field(default_factory=set)
+    lang: dict[str, list[Package]] = field(default_factory=dict)
 
 
-def scan_layer(fileobj: IO[bytes], mode: str = "r|*") -> LayerScan:
+def scan_layer(fileobj: IO[bytes], mode: str = "r|*", languages: bool = True) -> LayerScan:
     scan = LayerScan()
     with tarfile.open(fileobj=fileobj, mode=mode) as tf:
         for member in tf:
@@ -61,6 +63,14 @@ def scan_layer(fileobj: IO[bytes], mode: str = "r|*") -> LayerScan:
                 data = tf.extractfile(member)
                 if data is not None:
                     scan.files[path] = data.read().decode("utf-8", "replace")
+            elif languages and member.isfile():
+                finder = lang.kind(path, member.size, bool(member.mode & 0o111))
+                if finder:
+                    data = tf.extractfile(member)
+                    if data is not None:
+                        found = lang.parse(finder, path, data.read())
+                        if found:
+                            scan.lang[path] = found
     return scan
 
 
@@ -72,19 +82,21 @@ def _clean(name: str) -> str:
 class Filesystem:
     files: dict[str, str] = field(default_factory=dict)
     paths: set[str] = field(default_factory=set)
+    lang: dict[str, list[Package]] = field(default_factory=dict)
 
 
 def merge(scans: list[LayerScan]) -> Filesystem:
     fs = Filesystem()
     for scan in scans:
-        for prefix in scan.opaque:
-            fs.files = {k: v for k, v in fs.files.items() if not k.startswith(prefix)}
-            fs.paths = {p for p in fs.paths if not p.startswith(prefix)}
-        for path in scan.removed:
-            fs.files = {k: v for k, v in fs.files.items() if k != path and not k.startswith(path + "/")}
-            fs.paths = {p for p in fs.paths if p != path and not p.startswith(path + "/")}
+        gone = [lambda p, prefix=prefix: p.startswith(prefix) for prefix in scan.opaque]
+        gone += [lambda p, path=path: p == path or p.startswith(path + "/") for path in scan.removed]
+        if gone:
+            fs.files = {k: v for k, v in fs.files.items() if not any(g(k) for g in gone)}
+            fs.paths = {p for p in fs.paths if not any(g(p) for g in gone)}
+            fs.lang = {k: v for k, v in fs.lang.items() if not any(g(k) for g in gone)}
         fs.files.update(scan.files)
         fs.paths |= scan.paths
+        fs.lang.update(scan.lang)
     return fs
 
 
@@ -135,6 +147,18 @@ def parse_apk(text: str) -> list[Package]:
     return pkgs
 
 
+def apk_owned(text: str) -> set[str]:
+    """Every file path the apk database says a package installed."""
+    owned: set[str] = set()
+    folder = ""
+    for line in text.splitlines():
+        if line.startswith("F:"):
+            folder = line[2:]
+        elif line.startswith("R:"):
+            owned.add(f"{folder}/{line[2:]}" if folder else line[2:])
+    return owned
+
+
 def parse_os_release(text: str) -> dict[str, str]:
     out = {}
     for line in text.splitlines():
@@ -162,17 +186,32 @@ def read(fs: Filesystem) -> Contents:
     for path in sorted(fs.files):
         if path.startswith(DPKG_STATUS_D) and not path.endswith(".md5sums"):
             packages += parse_dpkg(fs.files[path])
+    owned: set[str] = set()
     for path in APK_DBS:
         if path in fs.files:
             packages += parse_apk(fs.files[path])
+            owned |= apk_owned(fs.files[path])
 
     return Contents(
         distro=_distro(fs),
-        packages=_dedupe(packages),
+        packages=_dedupe(packages) + _language(fs, owned),
         shell=bool(_SHELLS & fs.paths),
         package_manager=next((pm for path, pm in _PACKAGE_MANAGERS.items() if path in fs.paths), ""),
         libc=_libc(fs, packages),
     )
+
+
+def _language(fs: Filesystem, owned: set[str]) -> list[Package]:
+    """Language packages, minus those the distro installed: its own advisories
+    already cover them. Debian's dist-packages are never scanned for the same
+    reason; apk installs into site-packages, so apk's file list decides."""
+    seen: dict[tuple[str, str, str], Package] = {}
+    for path in sorted(fs.lang):
+        if path.split("!/")[0] in owned:
+            continue
+        for p in fs.lang[path]:
+            seen.setdefault((p.ecosystem, p.name, p.version), p)
+    return sorted(seen.values(), key=lambda p: (p.ecosystem, p.name, p.version))
 
 
 def _dedupe(packages: list[Package]) -> list[Package]:

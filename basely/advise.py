@@ -13,11 +13,12 @@ import datetime
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
-from . import catalogue
+from . import catalogue, vex
+from .cache import Cache
 from .catalogue import Family
 from .dockerfile import Stage
 from .errors import BaselyError
-from .model import Image
+from .model import Image, is_language
 from .osv import Client
 from .refs import parse
 from .registry import Registry
@@ -139,7 +140,11 @@ def assess(stage: Stage, family: Family | None, current: Image, cand: Candidate)
         has = f"has {img.package_manager}" if img.package_manager else "has no package manager"
         issues.append(Issue("breaking", f"RUN installs packages with {pm}, but this image {has}"))
 
-    if family is not None:
+    other = catalogue.family_for(parse(cand.ref))
+    if family is not None and other is not None and other is not family and not (family.os and other.os):
+        # A Go image offered for a Python stage: comparing runtimes means nothing.
+        issues.append(Issue("caution", f"a {other.label} image, not a {family.label} one"))
+    elif family is not None:
         if family.os:
             if current.distro.id and img.distro.id and current.distro.id != img.distro.id:
                 issues.append(Issue("caution", f"{img.distro.label} instead of {current.distro.label}"))
@@ -174,14 +179,33 @@ def assess(stage: Stage, family: Family | None, current: Image, cand: Candidate)
     if img.needs_login:
         host = parse(cand.ref).host
         issues.append(Issue("note", f"needs a login: docker login {host}"))
-    if cand.source == "hardened":
-        issues.append(Issue("note", "Docker publishes VEX for these images, which Basely doesn't read yet, "
-                                    "so the real count may be lower"))
+    issues += _vex_issues(cand)
     if cand.source == "chainguard":
         issues.append(Issue("note", "free tier tracks latest only; pinning a version needs a Chainguard subscription"))
     for w in img.warnings:
         issues.append(Issue("note", w))
     return issues
+
+
+def _vex_issues(cand: Candidate) -> list[Issue]:
+    img = cand.image
+    assert img is not None
+    if img.vex_suppressed:
+        sources = " and ".join(img.vex_sources)
+        n = img.vex_suppressed
+        return [Issue("good", f"{sources} rules out {n} advisor{'y' if n == 1 else 'ies'}, left out of the counts")]
+    if cand.source == "hardened" and img.scanned:
+        return [Issue("note", "no VEX attestation found, so the counts may be higher than Docker's own")]
+    return []
+
+
+def _language_note(img: Image) -> list[Issue]:
+    n = img.count(language=True)
+    if not n:
+        return []
+    names = sorted({v.package for v in img.vulns if is_language(v.ecosystem)})
+    shown = ", ".join(names[:4]) + (f" and {len(names) - 4} more" if len(names) > 4 else "")
+    return [Issue("note", f"{n} of these advisories are in language packages the image ships ({shown})")]
 
 
 def current_issues(stage: Stage, family: Family | None, cand: Candidate) -> list[Issue]:
@@ -193,6 +217,8 @@ def current_issues(stage: Stage, family: Family | None, cand: Candidate) -> list
     if fixable:
         issues.append(Issue("caution", f"{fixable} advisor{'y has' if fixable == 1 else 'ies have'} a fix "
                                        "the image hasn't picked up: rebuild or pull a newer digest"))
+    issues += _language_note(img)
+    issues += _vex_issues(cand)
     age = _age_days(img.created)
     if age is not None and age > STALE_DAYS:
         issues.append(Issue("caution", f"last built {age} days ago"))
@@ -210,13 +236,17 @@ def current_issues(stage: Stage, family: Family | None, cand: Candidate) -> list
 class Advisor:
     def __init__(self, registry: Registry, osv: Client, platform: str = "linux/amd64",
                  include: tuple[str, ...] = ("official", "hardened", "chainguard", "upgrade"),
-                 progress=None) -> None:
+                 progress=None, vendor_vex: bool = True,
+                 user_vex: list[vex.Statement] | None = None) -> None:
         self.registry = registry
         self.osv = osv
         self.platform = platform
         self.include = include
         self.progress = progress or (lambda msg: None)
+        self.vendor_vex = vendor_vex
+        self.user_vex = user_vex or []
         self._images: dict[str, Image | BaselyError] = {}
+        self._vex: dict[str, list[vex.Statement]] = {}
 
     def _inspect(self, ref: str, platform: str) -> Image:
         key = f"{ref}|{platform}"
@@ -236,6 +266,31 @@ class Advisor:
             return Candidate(ref, source, self._inspect(ref, platform))
         except BaselyError as exc:
             return Candidate(ref, source, error=str(exc).removeprefix(f"{ref}: "))
+
+    def _vendor_statements(self, ref: str, digest: str) -> list[vex.Statement]:
+        key = f"{ref}@{digest}"
+        if key not in self._vex:
+            try:
+                cache = getattr(self.registry, "cache", None) or Cache(enabled=False)
+                self._vex[key] = vex.fetch(self.registry, parse(ref), digest, cache)
+            except BaselyError:
+                self._vex[key] = []
+        return self._vex[key]
+
+    def _apply_vex(self, candidates: list[Candidate]) -> None:
+        scanned = [c for c in candidates if c.image and c.image.scanned]
+        if self.vendor_vex:
+            wanted = {(c.ref, c.image.manifest_digest) for c in scanned if c.image.manifest_digest}  # type: ignore[union-attr]
+            if wanted:
+                self.progress(f"checking {len(wanted)} images for VEX attestations")
+                with ThreadPoolExecutor(6) as pool:
+                    list(pool.map(lambda w: self._vendor_statements(*w), wanted))
+        for c in scanned:
+            img = c.image
+            assert img is not None
+            if self.vendor_vex and img.manifest_digest:
+                vex.apply(img, self._vendor_statements(c.ref, img.manifest_digest), "the image's own VEX")
+            vex.apply(img, self.user_vex, "your VEX")
 
     def _upgrade(self, family: Family, version: str, role: str, current_ref: str) -> str:
         """The newest higher runtime version, as the first official suggestion for it."""
@@ -299,6 +354,7 @@ class Advisor:
         unique_images = list({id(i): i for i in images}.values())
         self.progress(f"looking up {sum(len(i.packages) for i in unique_images)} packages in OSV")
         self.osv.scan(unique_images)
+        self._apply_vex([c for sa, _, _ in plans for c in [sa.current, *sa.candidates] if c.image])
 
         for sa, _, _ in plans:
             for c in [sa.current, *sa.candidates]:
