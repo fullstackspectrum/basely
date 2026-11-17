@@ -125,7 +125,7 @@ Basely ships as a composite action. It writes the Markdown advice to the job pag
     registry: dhi.io
     username: ${{ secrets.DOCKERHUB_USERNAME }}
     password: ${{ secrets.DOCKERHUB_TOKEN }}
-- uses: fullstackspectrum/basely@v0
+- uses: fullstackspectrum/basely@v1
   with:
     dockerfile: Dockerfile
     fail-on: critical,root

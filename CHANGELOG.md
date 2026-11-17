@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 1.0.0 (2026-11-17)
 
-First release.
+First release. Basely follows semantic versioning: the CLI flags, the `--fail-on` categories, the exit codes, the JSON output and the GitHub Action inputs and outputs only change in a backwards-incompatible way in a new major version.
 
 - `basely advise [DOCKERFILE]` compares each stage's base image with official `-slim`/`-alpine` variants, Docker Hardened Images, Chainguard images and the newest release of the same runtime, for Python, Node.js, Go, Java, Debian, Ubuntu and Alpine.
 - `basely advise --image REF` and `basely compare IMAGE...` work without a Dockerfile.
