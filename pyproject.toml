@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = ["docker", "container", "base-image", "dockerfile", "vulnerability", "osv", "supply-chain", "security", "hardened-images"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
