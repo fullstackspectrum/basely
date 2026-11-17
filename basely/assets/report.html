@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<!--
+  Basely base image report template. basely/html.py fills in every
+  double-brace placeholder; every value is HTML-escaped there first.
+-->
+<html lang="en"{{THEME_ATTR}}>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="data:image/svg+xml;base64,{{FAVICON_B64}}" />
+  <title>Base Image Advice — {{TITLE}} | Basely</title>
+  <style>
+    /* Fonts are embedded, not fetched, so the report renders identically
+     * offline. Both are variable fonts under the SIL Open Font License 1.1. */
+    @font-face {
+      font-family: 'Space Grotesk';
+      font-weight: 300 700;
+      font-display: swap;
+      src: url(data:font/woff2;base64,{{FONT_DISPLAY_B64}}) format('woff2');
+    }
+    @font-face {
+      font-family: 'JetBrains Mono';
+      font-weight: 100 800;
+      font-display: swap;
+      src: url(data:font/woff2;base64,{{FONT_MONO_B64}}) format('woff2');
+    }
+
+    /* ── Design tokens ─────────────────────────────────────────── */
+    /* Full-Stack-Spectrum, shared with Vulnly: dark first, neutral
+     * surfaces, the spectrum kept for signal. */
+    :root {
+      --font-display:     'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono:        'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --gutter:           max(2.5rem, calc((100% - 1160px) / 2 + 2.5rem));
+
+      --cs-accent:        #8fb4ff;
+      --accent-rgb:       143,180,255;
+      --cs-red:           #ff4d5e;
+      --focus:            #4f8cff;
+
+      --spectrum-1:       #4f8cff;
+      --spectrum-2:       #8fb4ff;
+      --spectrum-3:       #f5c84c;
+      --spectrum-4:       #ff8a3d;
+      --spectrum-5:       #ff4d5e;
+
+      --cs-bg:            #0a0d12;
+      --cs-surface:       #121821;
+      --cs-surface2:      #10151d;
+      --cs-border:        #222b38;
+      --cs-border-strong: #2f3a4b;
+      --cs-text:          #eef1f6;
+      --cs-muted:         #9aa4b2;
+      --cs-faint:         #646f7f;
+      --dot:              rgba(255,255,255,0.07);
+
+      /* Change and finding colours borrow the severity spectrum: hot means
+       * look at this, cool means routine. */
+      --c-red:            #ff4d5e;  --c-red-rgb:    255,77,94;
+      --c-orange:         #ff8a3d;  --c-orange-rgb: 255,138,61;
+      --c-yellow:         #f5c84c;  --c-yellow-rgb: 245,200,76;
+      --c-blue:           #4f8cff;  --c-blue-rgb:   79,140,255;
+      --c-soft:           #8fb4ff;  --c-soft-rgb:   143,180,255;
+      --c-grey:           #9aa4b2;  --c-grey-rgb:   154,164,178;
+
+      --tint-weak:        0.12;
+      --tint-border:      0.50;
+      --header-bg:        rgba(10,13,18,0.72);
+    }
+
+    :root[data-theme="light"] {
+      --cs-accent:        #2a5bc4;
+      --accent-rgb:       42,91,196;
+      --cs-red:           #d1213a;
+      --focus:            #2d63d8;
+
+      --cs-bg:            #fafafa;
+      --cs-surface:       #ffffff;
+      --cs-surface2:      #f2f4f7;
+      --cs-border:        #e3e7ed;
+      --cs-border-strong: #cbd3de;
+      --cs-text:          #0a0d12;
+      --cs-muted:         #4a5462;
+      --cs-faint:         #5f6b7a;
+      --dot:              rgba(10,13,18,0.07);
+
+      --c-red:            #d1213a;  --c-red-rgb:    209,33,58;
+      --c-orange:         #b8500f;  --c-orange-rgb: 184,80,15;
+      --c-yellow:         #8f6500;  --c-yellow-rgb: 143,101,0;
+      --c-blue:           #2d63d8;  --c-blue-rgb:   45,99,216;
+      --c-soft:           #2a5bc4;  --c-soft-rgb:   42,91,196;
+      --c-grey:           #5f6b7a;  --c-grey-rgb:   95,107,122;
+
+      --tint-weak:        0.08;
+      --tint-border:      0.40;
+      --header-bg:        rgba(250,250,250,0.85);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @media (max-width: 600px) { :root { --gutter: 1rem; } }
+
+    body {
+      font-family: var(--font-display);
+      background-color: var(--cs-bg);
+      background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+      background-size: 28px 28px;
+      color: var(--cs-text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    ::selection { background: var(--cs-red); color: var(--cs-bg); }
+    :focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+    a { color: var(--cs-accent); }
+
+    /* Each kind maps to one colour, used by badges, cards and filters. */
+    /* Severity runs hot to cool down the spectrum. Good news takes the
+     * brand blue; there's no green. */
+    .k-critical      { --k: var(--c-red);    --k-rgb: var(--c-red-rgb); }
+    .k-high          { --k: var(--c-orange); --k-rgb: var(--c-orange-rgb); }
+    .k-medium        { --k: var(--c-yellow); --k-rgb: var(--c-yellow-rgb); }
+    .k-low           { --k: var(--c-soft);   --k-rgb: var(--c-soft-rgb); }
+    .k-unknown       { --k: var(--c-grey);   --k-rgb: var(--c-grey-rgb); }
+    .k-drop-in       { --k: var(--c-blue);   --k-rgb: var(--c-blue-rgb); }
+    .k-minor-changes { --k: var(--c-yellow); --k-rgb: var(--c-yellow-rgb); }
+    .k-needs-changes { --k: var(--c-orange); --k-rgb: var(--c-orange-rgb); }
+    .k-unavailable   { --k: var(--c-grey);   --k-rgb: var(--c-grey-rgb); }
+    .k-current       { --k: var(--c-grey);   --k-rgb: var(--c-grey-rgb); }
+    .k-breaking      { --k: var(--c-orange); --k-rgb: var(--c-orange-rgb); }
+    .k-caution       { --k: var(--c-yellow); --k-rgb: var(--c-yellow-rgb); }
+    .k-note          { --k: var(--c-grey);   --k-rgb: var(--c-grey-rgb); }
+    .k-good          { --k: var(--c-blue);   --k-rgb: var(--c-blue-rgb); }
+    .k-better        { --k: var(--c-blue);   --k-rgb: var(--c-blue-rgb); }
+    .k-none          { --k: var(--c-grey);   --k-rgb: var(--c-grey-rgb); }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      position: sticky; top: 0; z-index: 10;
+      background: var(--header-bg);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--cs-border);
+      padding: 0 var(--gutter);
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px;
+    }
+    .logo-area { display: flex; align-items: center; gap: 0.75rem; }
+    /* The Layered Core product mark. Its layers are filled with the dark
+     * bg, so it sits on a dark tile in the light theme too. */
+    .logo-mark { display: block; width: 28px; height: 28px; }
+    :root[data-theme="light"] .logo-mark { background: #0a0d12; border-radius: 6px; padding: 3px; width: 32px; height: 32px; }
+    .logo-text { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em; }
+    .header-actions { display: flex; align-items: center; gap: 0.75rem; }
+
+    .badge {
+      font-family: var(--font-mono);
+      font-size: 0.69rem; font-weight: 600;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--k);
+      background: rgba(var(--k-rgb), var(--tint-weak));
+      border: 1px solid rgba(var(--k-rgb), var(--tint-border));
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .theme-toggle {
+      width: 34px; height: 34px;
+      border-radius: 6px;
+      border: 1px solid var(--cs-border);
+      background: var(--cs-surface);
+      color: var(--cs-muted);
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .theme-toggle:hover { color: var(--cs-text); border-color: var(--cs-border-strong); }
+    :root[data-theme="light"] .theme-toggle .to-light,
+    :root:not([data-theme="light"]) .theme-toggle .to-dark { display: none; }
+
+    /* ── Hero ───────────────────────────────────────────────────── */
+    .hero { border-bottom: 1px solid var(--cs-border); padding: 3.5rem var(--gutter) 2.5rem; }
+    .spectrum-bar { display: flex; gap: 6px; margin-bottom: 1.5rem; }
+    .spectrum-bar i { display: block; width: 28px; height: 8px; border-radius: 1px; }
+    .spectrum-bar i:nth-child(1) { background: var(--spectrum-1); }
+    .spectrum-bar i:nth-child(2) { background: var(--spectrum-2); }
+    .spectrum-bar i:nth-child(3) { background: var(--spectrum-3); }
+    .spectrum-bar i:nth-child(4) { background: var(--spectrum-4); }
+    .spectrum-bar i:nth-child(5) { background: var(--spectrum-5); }
+    .hero-meta {
+      font-family: var(--font-mono); font-size: 0.81rem;
+      letter-spacing: 0.04em; color: var(--cs-red); margin-bottom: 0.75rem;
+    }
+    .hero-meta::before { content: '// '; color: var(--cs-faint); }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      font-weight: 700; line-height: 1.05; letter-spacing: -0.03em;
+      margin-bottom: 1rem; overflow-wrap: anywhere;
+    }
+    .hero h1 .arrow { color: var(--cs-faint); font-weight: 400; margin: 0 0.3em; }
+    .hero-sub { font-size: 1.06rem; color: var(--cs-muted); max-width: 65ch; line-height: 1.6; }
+
+    /* ── Main ───────────────────────────────────────────────────── */
+    main { max-width: 1160px; margin: 0 auto; padding: 2.5rem; }
+    @media (max-width: 600px) { main { padding: 2rem 1rem; } }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 3rem;
+    }
+    .stat-card {
+      background: var(--cs-surface);
+      border: 1px solid var(--cs-border);
+      border-radius: 10px;
+      padding: 1.25rem 1.25rem;
+      position: relative; overflow: hidden;
+    }
+    .stat-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--k);
+    }
+    .stat-label {
+      font-family: var(--font-mono); font-size: 0.69rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.04em; color: var(--cs-muted);
+      margin-bottom: 0.5rem;
+    }
+    .stat-number {
+      font-family: var(--font-mono); font-size: 2rem; font-weight: 700;
+      letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums;
+      color: var(--k);
+    }
+    .stat-card.zero .stat-number { color: var(--cs-faint); }
+    .stat-sub { font-size: 0.78rem; color: var(--cs-muted); margin-top: 0.45rem; }
+
+    .section-title {
+      font-size: 1.375rem; font-weight: 700; letter-spacing: -0.02em;
+      margin-bottom: 1.25rem;
+      display: flex; align-items: center; gap: 0.75rem;
+    }
+    .section-title::before {
+      content: '//'; font-family: var(--font-mono); font-size: 0.81rem;
+      font-weight: 400; letter-spacing: 0; color: var(--cs-faint);
+    }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--cs-border); }
+    section { margin-bottom: 3rem; }
+
+        /* ── Stages ─────────────────────────────────────────────────── */
+    .stage-meta { font-family: var(--font-mono); font-size: 0.78rem; color: var(--cs-faint); margin: -0.5rem 0 1.25rem; overflow-wrap: anywhere; }
+    .stage-meta code { color: var(--cs-muted); }
+
+    .advice {
+      background: var(--cs-surface);
+      border: 1px solid var(--cs-border);
+      border-left: 3px solid var(--k);
+      border-radius: 10px;
+      padding: 1.25rem 1.4rem;
+      margin-bottom: 1.25rem;
+    }
+    .advice-label {
+      font-family: var(--font-mono); font-size: 0.69rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.04em; color: var(--k);
+      margin-bottom: 0.5rem;
+    }
+    .advice-head { font-size: 1.15rem; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+    .advice-head code { font-family: var(--font-mono); font-size: 0.95em; }
+    .from-diff {
+      margin-top: 1rem;
+      font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.8;
+      background: var(--cs-surface2); border: 1px solid var(--cs-border); border-radius: 8px;
+      padding: 0.5rem 0; overflow-x: auto;
+    }
+    .from-diff div { padding: 0 1rem; white-space: pre; }
+    /* Removals in red, as every diff reader expects; additions in brand blue. */
+    .from-diff .del { background: rgba(var(--c-red-rgb), 0.09); }
+    .from-diff .del::before { content: '− '; color: var(--c-red); font-weight: 700; }
+    .from-diff .add { background: rgba(var(--c-blue-rgb), 0.10); }
+    .from-diff .add::before { content: '+ '; color: var(--c-blue); font-weight: 700; }
+
+    .issues { list-style: none; display: grid; gap: 0.4rem; margin-top: 1rem; }
+    .issues li { display: grid; grid-template-columns: 5.5rem 1fr; gap: 0.75rem; align-items: baseline; font-size: 0.9rem; color: var(--cs-muted); }
+    .issues .badge { text-align: center; }
+    .issues code { font-family: var(--font-mono); font-size: 0.82em; color: var(--cs-text); }
+
+    .alt { margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--cs-border-strong); }
+    .alt-head { font-weight: 600; overflow-wrap: anywhere; }
+    .alt-head code { font-family: var(--font-mono); font-size: 0.9em; }
+
+    /* ── Comparison table ───────────────────────────────────────── */
+    .empty {
+      background: var(--cs-surface);
+      border: 1px dashed var(--cs-border-strong);
+      border-radius: 10px;
+      padding: 1.5rem;
+      color: var(--cs-muted);
+      text-align: center;
+    }
+
+    .table-wrap {
+      background: var(--cs-surface);
+      border: 1px solid var(--cs-border);
+      border-radius: 10px;
+      overflow-x: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th {
+      font-family: var(--font-mono); font-size: 0.69rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.04em; color: var(--cs-muted);
+      text-align: left; padding: 0.8rem 1rem;
+      border-bottom: 1px solid var(--cs-border);
+      background: var(--cs-surface2);
+      white-space: nowrap;
+    }
+    td { padding: 0.7rem 1rem; border-bottom: 1px solid var(--cs-border); vertical-align: top; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: var(--cs-surface2); }
+    td.img { font-weight: 600; overflow-wrap: anywhere; min-width: 14rem; }
+    td.img code { font-family: var(--font-mono); font-size: 0.8rem; }
+    td.img small { display: block; font-family: var(--font-mono); font-weight: 400; font-size: 0.7rem; color: var(--cs-faint); margin-top: 0.2rem; }
+    tr.is-current td { background: var(--cs-surface2); }
+    tr.is-pick td.img code { color: var(--c-blue); }
+    td.num { font-family: var(--font-mono); font-size: 0.8rem; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    td.num.zero { color: var(--cs-faint); }
+    td.num.sev { color: var(--k); font-weight: 600; }
+    th.num { text-align: right; }
+    td.meta { font-family: var(--font-mono); font-size: 0.75rem; color: var(--cs-muted); white-space: nowrap; }
+    .size-bar { display: block; height: 3px; border-radius: 2px; background: var(--cs-border-strong); margin-top: 0.35rem; min-width: 2px; }
+    .risk-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--cs-border); min-width: 90px; margin-top: 0.35rem; }
+    .risk-bar i { display: block; height: 100%; background: var(--k); }
+    td.err { color: var(--cs-faint); font-size: 0.82rem; }
+
+    details.more { margin-top: 0.4rem; }
+    details.more summary { cursor: pointer; font-family: var(--font-mono); font-size: 0.7rem; color: var(--cs-faint); font-weight: 400; }
+    details.more summary:hover { color: var(--cs-muted); }
+    details.more .issues { margin-top: 0.5rem; }
+    details.more .issues li { grid-template-columns: 5.5rem 1fr; font-weight: 400; font-size: 0.82rem; }
+    .vulns { margin-top: 0.6rem; display: grid; gap: 0.25rem; font-family: var(--font-mono); font-size: 0.72rem; font-weight: 400; }
+    .vulns div { display: grid; grid-template-columns: 4.5rem 9.5rem 1fr; gap: 0.5rem; color: var(--cs-muted); }
+    .vulns .sv { color: var(--k); }
+    .vulns .more-n { color: var(--cs-faint); grid-template-columns: 1fr; }
+
+    .method { font-size: 0.85rem; color: var(--cs-muted); line-height: 1.6; max-width: 80ch; }
+    .method p + p { margin-top: 0.6rem; }
+    .method code { font-family: var(--font-mono); font-size: 0.8rem; }
+
+    @media (max-width: 600px) {
+      .issues li, details.more .issues li { grid-template-columns: 1fr; gap: 0.25rem; }
+      .issues .badge { justify-self: start; }
+      .vulns div { grid-template-columns: 4.5rem 1fr; }
+      .vulns div span:last-child { grid-column: 1 / -1; }
+    }
+
+    /* ── Footer ─────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--cs-border);
+      padding: 1.5rem var(--gutter);
+      display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; justify-content: space-between;
+      font-size: 0.81rem; color: var(--cs-muted);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-area">
+    <svg class="logo-mark" viewBox="9 9 46 46" aria-hidden="true"><rect x="25" y="11" width="28" height="28" rx="6" fill="#0a0d12" stroke="#4f8cff" stroke-width="3.5"/><rect x="18" y="18" width="28" height="28" rx="6" fill="#0a0d12" stroke="#f5c84c" stroke-width="3.5"/><rect x="11" y="25" width="28" height="28" rx="6" fill="#0a0d12" stroke="#eef1f6" stroke-width="3.5"/><path d="M19.5 39.5l5.5-5.5 5.5 5.5M19.5 46h11" fill="none" stroke="#ff4d5e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span class="logo-text">Basely</span>
+  </div>
+  <div class="header-actions">
+    <span class="badge {{BADGE_CLASS}}">{{BADGE_TEXT}}</span>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch theme" title="Switch theme">
+      <span class="to-dark" aria-hidden="true">&#9789;</span>
+      <span class="to-light" aria-hidden="true">&#9788;</span>
+    </button>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="spectrum-bar" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+  <p class="hero-meta">base image advice</p>
+  <h1>{{HERO_TITLE}}</h1>
+  <p class="hero-sub">{{HEADLINE}}</p>
+</div>
+
+<main>
+  <div class="stats-row">
+    {{STAT_CARDS}}
+  </div>
+
+  {{STAGES}}
+
+  <section aria-labelledby="methodTitle">
+    <h2 class="section-title" id="methodTitle">How Basely compares</h2>
+    <div class="method">
+      <p>Each image's package database is read straight from its layers over the registry API, for <code>{{PLATFORM}}</code>, and every package is looked up in <a href="https://osv.dev" target="_blank" rel="noopener">OSV</a> against its distro's own advisory feed, so backported fixes count as fixed. Advisories the distro marks as unimportant or negligible, Chainguard false positives and kernel advisories (a container runs on the host's kernel) are left out.</p>
+      <p>Images are ranked by severity-weighted advisories, then size. A candidate that would break a stage, such as one with no shell under a stage with <code>RUN</code> steps, is never the recommendation; it can be offered as worth the changes when it at least halves the risk. Counts cover OS packages only, not what your build installs on top.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div>Generated by <a href="https://github.com/fullstackspectrum/basely" target="_blank" rel="noopener">Basely</a> {{VERSION}} &mdash; {{REPORT_DATE}}</div>
+  <div>Part of <a href="https://fullstackspectrum.com/" target="_blank" rel="noopener">Full-Stack-Spectrum</a></div>
+</footer>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    document.getElementById('themeToggle').addEventListener('click', function () {
+      var light = root.getAttribute('data-theme') !== 'light';
+      if (light) root.setAttribute('data-theme', 'light'); else root.removeAttribute('data-theme');
+      try { localStorage.setItem('basely-theme', light ? 'light' : 'dark'); } catch (e) {}
+    });
+    try {
+      var saved = localStorage.getItem('basely-theme');
+      if (saved === 'light') root.setAttribute('data-theme', 'light');
+      if (saved === 'dark') root.removeAttribute('data-theme');
+    } catch (e) {}
+  })();
+</script>
+</body>
+</html>

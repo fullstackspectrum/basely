@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "basely"
+dynamic = ["version"]
+description = "Compare container base images on vulnerabilities (via OSV), size and fit with your Dockerfile, and pick a better one"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [
+    { name = "Colin Moynes", email = "dev@fullstackspectrum.com" },
+]
+keywords = ["docker", "container", "base-image", "dockerfile", "vulnerability", "osv", "supply-chain", "security", "hardened-images"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/fullstackspectrum/basely"
+Issues = "https://github.com/fullstackspectrum/basely/issues"
+
+[project.scripts]
+basely = "basely:main"
+
+[tool.setuptools.dynamic]
+# One source of truth: the release workflow checks the tag against __version__.
+version = { attr = "basely.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["basely*"]
+
+[tool.setuptools.package-data]
+basely = ["py.typed", "assets/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Import basely from the working tree so the suite runs without installing.
+pythonpath = [".", "tests"]

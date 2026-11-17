@@ -1,0 +1,97 @@
+name: Basely base image advice
+description: Compare each base image in a Dockerfile with hardened, slim and newer alternatives, write the advice to the job page, and optionally fail.
+author: Full-Stack-Spectrum
+branding:
+  icon: layers
+  color: blue
+
+inputs:
+  dockerfile:
+    description: Path to the Dockerfile.
+    default: Dockerfile
+  image:
+    description: Advise on this image instead of a Dockerfile.
+    default: ""
+  only:
+    description: Comma-separated sources to suggest from (official, hardened, chainguard, upgrade). Empty means all.
+    default: ""
+  platform:
+    description: Platform to compare.
+    default: linux/amd64
+  fail-on:
+    description: Comma-separated categories that fail the step, e.g. "better,critical". Empty never fails.
+    default: ""
+  title:
+    description: Title for the Markdown and HTML reports.
+    default: ""
+  html:
+    description: Where to write the HTML report.
+    default: basely-report.html
+  markdown:
+    description: Where to write the Markdown summary (handy for a PR comment step).
+    default: basely-advice.md
+  json:
+    description: Where to write the JSON results.
+    default: basely-advice.json
+  version:
+    description: Basely version to install from PyPI. Empty installs the latest.
+    default: ""
+
+outputs:
+  markdown:
+    description: Path to the Markdown summary.
+    value: ${{ steps.advise.outputs.markdown }}
+  html:
+    description: Path to the HTML report.
+    value: ${{ steps.advise.outputs.html }}
+  json:
+    description: Path to the JSON results.
+    value: ${{ steps.advise.outputs.json }}
+
+runs:
+  using: composite
+  steps:
+    # 3.14 reads the zstd-compressed layers Docker Hardened Images use; the
+    # runner's own Python can't.
+    - uses: actions/setup-python@v5
+      id: python
+      with:
+        python-version: "3.14"
+        update-environment: false
+
+    - id: advise
+      shell: bash
+      # Inputs go through the environment, never into the script text, so a
+      # crafted path or title can't inject shell.
+      env:
+        PYTHON: ${{ steps.python.outputs.python-path }}
+        DOCKERFILE: ${{ inputs.dockerfile }}
+        IMAGE: ${{ inputs.image }}
+        ONLY: ${{ inputs.only }}
+        PLATFORM: ${{ inputs.platform }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        TITLE: ${{ inputs.title }}
+        HTML: ${{ inputs.html }}
+        MD: ${{ inputs.markdown }}
+        JSON: ${{ inputs.json }}
+        BASELY_VERSION: ${{ inputs.version }}
+      run: |
+        "$PYTHON" -m venv "$RUNNER_TEMP/basely"
+        "$RUNNER_TEMP/basely/bin/pip" install --quiet "basely${BASELY_VERSION:+==$BASELY_VERSION}"
+
+        args=(advise --platform "$PLATFORM" --html "$HTML" --markdown "$MD" --json "$JSON")
+        if [ -n "$IMAGE" ]; then args+=(--image "$IMAGE"); else args+=("$DOCKERFILE"); fi
+        [ -n "$ONLY" ] && args+=(--only "$ONLY")
+        [ -n "$FAIL_ON" ] && args+=(--fail-on "$FAIL_ON")
+        [ -n "$TITLE" ] && args+=(--title "$TITLE")
+
+        set +e
+        "$RUNNER_TEMP/basely/bin/basely" "${args[@]}"
+        code=$?
+        set -e
+
+        [ -f "$MD" ] && cat "$MD" >> "$GITHUB_STEP_SUMMARY"
+        echo "markdown=$MD" >> "$GITHUB_OUTPUT"
+        echo "html=$HTML" >> "$GITHUB_OUTPUT"
+        echo "json=$JSON" >> "$GITHUB_OUTPUT"
+        exit $code

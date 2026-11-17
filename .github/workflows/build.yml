@@ -1,0 +1,89 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install build dependencies
+        run: pip install build
+
+      - name: Build package
+        run: python -m build
+
+      - name: Install package with dev extras
+        run: pip install "$(ls dist/*.whl)[dev]"
+
+      - name: Run tests
+        run: pytest -q
+
+  # The unit tests run offline; this checks the real thing against Docker Hub
+  # and OSV, from outside the checkout so the installed wheel is what runs.
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install build && python -m build && pip install dist/*.whl
+      - name: Compare two small public images
+        working-directory: /tmp
+        run: |
+          basely compare alpine:3.22 alpine:3.21 --no-cache --html report.html --markdown advice.md
+          test -s report.html && test -s advice.md
+          cat advice.md >> "$GITHUB_STEP_SUMMARY"
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: python -m pip install build twine
+      - run: python -m build
+      - run: twine check --strict dist/*
+
+  docker:
+    # The base images on dhi.io need a login, and pull requests from forks don't get
+    # secrets, so those skip the image build.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: dhi.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: basely:ci
+      - name: Smoke test
+        run: |
+          docker run --rm basely:ci --version
+          docker run --rm basely:ci compare alpine:3.22 alpine:3.21
